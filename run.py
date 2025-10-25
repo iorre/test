@@ -1,7 +1,7 @@
 import sys
 from collections import defaultdict
 from math import inf
-from queue import PriorityQueue
+import heapq
 from itertools import count
 #Чупров Вячеслав
 
@@ -75,35 +75,38 @@ def move_cost(amphipod_type: int, steps: int) -> int:
     return steps * (10 ** amphipod_type)
 
 
-def hall_to_room(amphipod_type: int, hallway_pos: int, hallway: tuple, rooms: tuple) -> tuple | None:
-    #Попытка переместить амфипода из коридора в его целевую комнату.
-    
-    # Комната, соответствующая типу амфипода (A->2, B->4, C->6, D->8)
-    room_pos = {0: 2, 1: 4, 2: 6, 3: 8}[amphipod_type]
-    new_hallway = list(hallway)
-    new_rooms = [list(r) for r in rooms]
+def hall_to_room(amphipod_type, hallway_pos, hallway, rooms):
+    room_idx = amphipod_type
+    room_pos = {0: 2, 1: 4, 2: 6, 3: 8}[room_idx]
 
-    # Если в целевой комнате есть чужие амфиподы — вход запрещён
-    if any(x is not None and x != amphipod_type for x in rooms[amphipod_type]):
+    # нельзя входить, если в целевой комнате чужие
+    room = rooms[room_idx]
+    if any(x is not None and x != amphipod_type for x in room):
         return None
 
-    # Проверяем, что путь в коридоре свободен
+    # путь свободен?
     step = 1 if hallway_pos < room_pos else -1
     for pos in range(hallway_pos + step, room_pos + step, step):
         if hallway[pos] is not None:
             return None
 
-    # Находим самую глубокую свободную позицию в комнате
-    for depth in range(len(rooms[amphipod_type]) - 1, -1, -1):
-        if new_rooms[amphipod_type][depth] is None:
-            new_rooms[amphipod_type][depth] = amphipod_type
+    # находим свободное место
+    for depth in range(len(room) - 1, -1, -1):
+        if room[depth] is None:
             break
 
-    # Обновляем состояние и считаем затраты
+    new_hallway = list(hallway)
     new_hallway[hallway_pos] = None
+
+    new_room = list(room)
+    new_room[depth] = amphipod_type
+
+    new_rooms = list(rooms)
+    new_rooms[room_idx] = tuple(new_room)
+
     steps = abs(room_pos - hallway_pos) + depth + 1
-    cost = move_cost(amphipod_type, steps)
-    return (tuple(new_hallway), tuple(tuple(r) for r in new_rooms), cost)
+    cost = (10 ** amphipod_type) * steps
+    return (tuple(new_hallway), tuple(new_rooms), cost)
 
 
 def room_to_hall(room_idx: int, hallway_pos: int, hallway: tuple, rooms: tuple) -> tuple | None:
@@ -170,34 +173,36 @@ def get_neighbors(hallway: tuple, rooms: tuple) -> list:
 def dijkstra(start_hallway: tuple, start_rooms: tuple, final_hallway: tuple, final_rooms: tuple) -> int:
     # Реализация Дейкстры
     
-    # Стоимость каждого состояния (по умолчанию бесконечность)
     costs = defaultdict(lambda: inf)
     costs[(start_hallway, start_rooms)] = 0
     
-    # Очередь с приоритетом для выбора состояния с минимальной текущей стоимостью
     unique = count()
-    visit = PriorityQueue()
-    visit.put((0, next(unique), (start_hallway, start_rooms)))
+    pq = []
+    heapq.heappush(pq, (0, next(unique), (start_hallway, start_rooms)))
     
-    # Основной цикл алгоритма
-    while not visit.empty():
-        cost, _, (hallway, rooms) = visit.get()
+    visited = set()
+
+    while pq:
+        cost, _, (hallway, rooms) = heapq.heappop(pq)
+
+        # Пропускаем уже обработанные состояния
+        state_key = (hallway, rooms)
+        if state_key in visited:
+            continue
+        visited.add(state_key)
         
         # Проверка на достижение целевого состояния
         if hallway == final_hallway and rooms == final_rooms:
             return cost
         
         # Перебираем все возможные ходы
-        neighbors = get_neighbors(hallway, rooms)
-        
-        for neighbor in neighbors:
+        for neighbor in get_neighbors(hallway, rooms):
             new_cost = cost + neighbor[2]
             state = (neighbor[0], neighbor[1])
             
-            # Если нашли более дешёвый путь до состояния — обновляем
             if new_cost < costs[state]:
                 costs[state] = new_cost
-                visit.put((new_cost, next(unique), state))
+                heapq.heappush(pq, (new_cost, next(unique), state))
     
     return -1
 
