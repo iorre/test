@@ -207,13 +207,18 @@ def dijkstra(start_hallway: tuple, start_rooms: tuple, final_hallway: tuple, fin
     return -1
 
 
-def main():
-    lines = []
-    for line in sys.stdin:
-        lines.append(line.rstrip('\n'))
+import time
 
+def main():
+    start_time = time.perf_counter()
+
+    lines = [line.rstrip('\n') for line in sys.stdin]
     result = solve(lines)
+
+    end_time = time.perf_counter()
+
     print(result)
+    print(f"\nВремя выполнения: {end_time - start_time:.3f} сек")
 
 
 if __name__ == "__main__":
